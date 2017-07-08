@@ -15,19 +15,19 @@ public class Solver {
     }
 
     private List<Board> findSolution(Board initial) {
-        SolutionPath solutionPath = new SolutionPath(initial);
-        SolutionPath twinSolutionPath = new SolutionPath(initial.twin());
+        SearchNodeTrace searchNodeTrace = new SearchNodeTrace(initial);
+        SearchNodeTrace twinSearchNodeTrace = new SearchNodeTrace(initial.twin());
 
         while (true) {
-            boolean solutionHasReachedGoal = !solutionPath.hasNext();
-            boolean twinSolutionHasReachedGoal = !twinSolutionPath.hasNext();
+            boolean solutionHasReachedGoal = !searchNodeTrace.hasNext();
+            boolean twinSolutionHasReachedGoal = !twinSearchNodeTrace.hasNext();
 
             if (twinSolutionHasReachedGoal) {
                 return null;
             }
 
             if (solutionHasReachedGoal) {
-                SearchNode searchNode = solutionPath.next();
+                SearchNode searchNode = searchNodeTrace.next();
                 return searchNode.reconstruct();
             }
         }
@@ -51,28 +51,37 @@ public class Solver {
     private class SearchNode implements Comparable<SearchNode> {
         private SearchNode prev;
         private Board board;
-        private int distance;
+        private int moves;
+        private Priority priority;
 
         public SearchNode(Board board) {
             this.board = board;
-            distance = 0;
+            moves = 0;
         }
 
-        public SearchNode(SearchNode prev, Board board, int distance) {
+        public SearchNode(SearchNode prev, Board board, int moves) {
             this.prev = prev;
             this.board = board;
-            this.distance = distance;
+            this.moves = moves;
         }
 
-        public int compareTo(SearchNode another) {
-            return (board.manhattan() + distance) - (another.board.manhattan() + another.distance);
+        public int compareTo(SearchNode other) {
+            return priority().compareTo(other.priority());
+        }
+
+        private Priority priority() {
+            if (priority == null) {
+                priority = new Priority(board.manhattan(), moves);
+            }
+
+            return priority;
         }
 
         public Iterable<SearchNode> neighbors() {
             ArrayList<SearchNode> result = new ArrayList<>();
 
             for (Board board : board.neighbors()) {
-                result.add(new SearchNode(this, board, distance + 1));
+                result.add(new SearchNode(this, board, moves + 1));
             }
 
             return result;
@@ -105,11 +114,31 @@ public class Solver {
         }
     }
 
-    private class SolutionPath implements Iterator<SearchNode> {
+    private class Priority implements Comparable<Priority> {
+        private final int distance;
+        private final int moves;
+
+        public Priority(int distance, int moves) {
+            this.distance = distance;
+            this.moves = moves;
+        }
+
+        @Override
+        public int compareTo(Priority other) {
+            int result = (moves + distance) - (other.moves + other.distance);
+            if (result == 0) {
+                result = distance - other.distance;
+            }
+
+            return result;
+        }
+    }
+
+    private class SearchNodeTrace implements Iterator<SearchNode> {
         MinPQ<SearchNode> minPQ;
         SearchNode next;
 
-        public SolutionPath(Board initialBoard) {
+        public SearchNodeTrace(Board initialBoard) {
             minPQ = new MinPQ<>();
             minPQ.insert(new SearchNode(initialBoard));
         }
