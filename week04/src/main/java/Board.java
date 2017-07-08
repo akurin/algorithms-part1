@@ -1,11 +1,11 @@
-import edu.princeton.cs.algs4.StdRandom;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class Board {
     private int[][] blocks;
+    private int hamming = -1;
+    private int manhattan = -1;
 
     public Board(int[][] blocks) {
         if (blocks == null) throw new IllegalArgumentException();
@@ -29,39 +29,47 @@ public class Board {
     }
 
     public int hamming() {
-        int blocksOutOfPlace = 0;
+        if (hamming == -1) {
+            int blocksOutOfPlace = 0;
 
-        for (int row = 0; row < dimension(); row++) {
-            for (int column = 0; column < dimension(); column++) {
-                int cellIndex = row * dimension() + column + 1;
-                int expectedNumber = cellIndex < dimension() * dimension() ? cellIndex : 0;
+            for (int row = 0; row < dimension(); row++) {
+                for (int column = 0; column < dimension(); column++) {
+                    int cellIndex = row * dimension() + column + 1;
+                    int expectedNumber = cellIndex < dimension() * dimension() ? cellIndex : 0;
 
-                int currentBlock = blocks[row][column];
-                if (currentBlock != 0 && currentBlock != expectedNumber) {
-                    blocksOutOfPlace++;
+                    int currentBlock = blocks[row][column];
+                    if (currentBlock != 0 && currentBlock != expectedNumber) {
+                        blocksOutOfPlace++;
+                    }
                 }
             }
+
+            hamming = blocksOutOfPlace;
         }
 
-        return blocksOutOfPlace;
+        return hamming;
     }
 
     public int manhattan() {
-        int distance = 0;
+        if (manhattan == -1) {
+            int distance = 0;
 
-        for (int row = 0; row < dimension(); row++) {
-            for (int column = 0; column < dimension(); column++) {
-                int currentBlock = blocks[row][column];
-                int currentBlockExpectedRow = (currentBlock - 1) / dimension();
-                int currentBlockExpectedColumn = (currentBlock - 1) % dimension();
+            for (int row = 0; row < dimension(); row++) {
+                for (int column = 0; column < dimension(); column++) {
+                    int currentBlock = blocks[row][column];
+                    int currentBlockExpectedRow = (currentBlock - 1) / dimension();
+                    int currentBlockExpectedColumn = (currentBlock - 1) % dimension();
 
-                if (currentBlock != 0) {
-                    distance += Math.abs(currentBlockExpectedRow - row) + Math.abs(currentBlockExpectedColumn - column);
+                    if (currentBlock != 0) {
+                        distance += Math.abs(currentBlockExpectedRow - row) + Math.abs(currentBlockExpectedColumn - column);
+                    }
                 }
             }
+
+            manhattan = distance;
         }
 
-        return distance;
+        return manhattan;
     }
 
     public boolean isGoal() {
@@ -69,17 +77,10 @@ public class Board {
     }
 
     public Board twin() {
-        while (true) {
-            int rowOfFirst = StdRandom.uniform(0, dimension());
-            int columnOfFirst = StdRandom.uniform(0, dimension());
-            if (blocks[rowOfFirst][columnOfFirst] == 0) continue;
+        Position firstPosition = blockPosition(v -> v != 0);
+        Position secondPosition = blockPosition(v -> v != 0 && v != blocks[firstPosition.row()][firstPosition.column()]);
 
-            int rowOfSecond = StdRandom.uniform(0, dimension());
-            int columnOfSecond = StdRandom.uniform(0, dimension());
-            if (blocks[rowOfSecond][columnOfSecond] == 0) continue;
-
-            return swap(new Position(rowOfFirst, columnOfFirst), new Position(rowOfSecond, columnOfSecond));
-        }
+        return swap(firstPosition, secondPosition);
     }
 
     private Board swap(Position p1, Position p2) {
@@ -91,25 +92,20 @@ public class Board {
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+    public boolean equals(Object another) {
+        if (this == another) return true;
+        if (another == null || getClass() != another.getClass()) return false;
 
-        Board board = (Board) o;
+        Board board = (Board) another;
 
         return Arrays.deepEquals(blocks, board.blocks);
 
     }
 
-    @Override
-    public int hashCode() {
-        return Arrays.deepHashCode(blocks);
-    }
-
     public Iterable<Board> neighbors() {
-        List<Board> result = new ArrayList<Board>();
+        List<Board> result = new ArrayList<>();
 
-        Position emptyBlockPosition = emptyBlockPosition();
+        Position emptyBlockPosition = blockPosition(value -> value == 0);
 
         Position[] moveDirections = {
                 new Position(0, -1),
@@ -129,10 +125,11 @@ public class Board {
         return result;
     }
 
-    private Position emptyBlockPosition() {
+    private Position blockPosition(java.util.function.Function<Integer, Boolean> predicate) {
         for (int row = 0; row < dimension(); row++) {
             for (int column = 0; column < dimension(); column++) {
-                if (blocks[row][column] == 0) {
+                int i = blocks[row][column];
+                if (predicate.apply(i)) {
                     return new Position(row, column);
                 }
             }
@@ -177,6 +174,11 @@ public class Board {
 
         public Position move(Position moveDirection) {
             return new Position(row + moveDirection.row(), column + moveDirection.column());
+        }
+
+        @Override
+        public String toString() {
+            return "(" + row + ", " + column + ")";
         }
     }
 }
